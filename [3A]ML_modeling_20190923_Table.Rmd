@@ -1,0 +1,219 @@
+---
+title: '[3A]ML_modeling'
+author: "Wyliena Guan"
+date: "6/30/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+```
+
+```{r}
+# Classification.Summary
+
+
+
+Classification.Summary <- data.frame(Logistic=c(mean(Logistic.statistics$Accuracy.Logistic),
+                                           mean(Logistic.statistics$Sensitivity.Logistic),
+                                           mean(Logistic.statistics$Specificity.Logistic),
+                                           mean(Logistic.statistics$PPV.Logistic),
+                                           mean(Logistic.statistics$NPV.Logistic, na.rm = T),
+                                           mean(Logistic.statistics$F1.Logistic, na.rm = T),
+                                           mean(Logistic.statistics$AUC.Logistic)),
+                                     Logistic1=c(mean(Logistic1.statistics$Accuracy.Logistic1),
+                                           mean(Logistic1.statistics$Sensitivity.Logistic1),
+                                           mean(Logistic1.statistics$Specificity.Logistic1),
+                                           mean(Logistic1.statistics$PPV.Logistic1),
+                                           mean(Logistic1.statistics$NPV.Logistic1),
+                                           mean(Logistic1.statistics$F1.Logistic1),
+                                           mean(Logistic1.statistics$AUC.Logistic1)),
+                                     Logistic2=c(mean(Logistic2.statistics$Accuracy.Logistic2),
+                                           mean(Logistic2.statistics$Sensitivity.Logistic2),
+                                           mean(Logistic2.statistics$Specificity.Logistic2),
+                                           mean(Logistic2.statistics$PPV.Logistic2),
+                                           mean(Logistic2.statistics$NPV.Logistic2),
+                                           mean(Logistic2.statistics$F1.Logistic2),
+                                           mean(Logistic2.statistics$AUC.Logistic2)),
+                                     Logistic3=c(mean(Logistic3.statistics$Accuracy.Logistic3),
+                                           mean(Logistic3.statistics$Sensitivity.Logistic3),
+                                           mean(Logistic3.statistics$Specificity.Logistic3),
+                                           mean(Logistic3.statistics$PPV.Logistic3),
+                                           mean(Logistic3.statistics$NPV.Logistic3),
+                                           mean(Logistic3.statistics$F1.Logistic3),
+                                           mean(Logistic3.statistics$AUC.Logistic3)),
+                                     Logistic.Score=c(mean(Logistic.scores.statistics$Accuracy.Logistic.score),
+                                           mean(Logistic.scores.statistics$Sensitivity.Logistic.score),
+                                           mean(Logistic.scores.statistics$Specificity.Logistic.score),
+                                           mean(Logistic.scores.statistics$PPV.Logistic.score),
+                                           mean(Logistic.scores.statistics$NPV.Logistic.score),
+                                           mean(Logistic.scores.statistics$F1.Logistic.score),
+                                           mean(Logistic.scores.statistics$AUC.Logistic.score)),
+                                     KNN.Score=c(mean(KNN.statistics$Accuracy.KNN),
+                                           mean(KNN.statistics$Sensitivity.KNN),
+                                           mean(KNN.statistics$Specificity.KNN),
+                                           mean(KNN.statistics$PPV.KNN),
+                                           mean(KNN.statistics$NPV.KNN),
+                                           mean(KNN.statistics$F1.KNN),
+                                           mean(KNN.statistics$AUC.KNN)),
+                                     SVM=c(mean(SVM.statistics$Accuracy.SVM),
+                                           mean(SVM.statistics$Sensitivity.SVM),
+                                           mean(SVM.statistics$Specificity.SVM),
+                                           mean(SVM.statistics$PPV.SVM),
+                                           mean(SVM.statistics$NPV.SVM),
+                                           mean(SVM.statistics$F1.SVM),
+                                           mean(SVM.statistics$AUC.SVM)),
+                                     Tree=c(mean(CART.statistics$Accuracy.CART),
+                                           mean(CART.statistics$Sensitivity.CART),
+                                           mean(CART.statistics$Specificity.CART),
+                                           mean(CART.statistics$PPV.CART),
+                                           mean(CART.statistics$NPV.CART),
+                                           mean(CART.statistics$F1.CART),
+                                           mean(CART.statistics$AUC.CART)),
+                                     Random.Forest=c(mean(RF.statistics$Accuracy.RF),
+                                           mean(RF.statistics$Sensitivity.RF),
+                                           mean(RF.statistics$Specificity.RF),
+                                           mean(RF.statistics$PPV.RF),
+                                           mean(RF.statistics$NPV.RF),
+                                           mean(RF.statistics$F1.RF),
+                                           mean(RF.statistics$AUC.RF))
+                                     )
+rownames(Classification.Summary) <- c("Accuracy","Sensitivity","Specificity", "Pos Pred Value", "Neg Pred Value", "F1", "AUC")
+Classification.Summary
+
+```
+
+```{Random Forest Importance Plot}
+library(caret)
+library(dplyr)
+library(ROCR)
+library(randomForest)
+
+load(file="/data/arrhythmia/wguan/cardioembolic_stroke/data/includeOtherStroke/feature_table_wide4.RData")
+
+df0 <- feature_table_wide4
+myvars <- names(feature_table_wide4) %in% c("Toast","CCS","EMPI","stroke_date_index","Gender",
+                                           "Toast_new")
+df1 <- df0[,!myvars]
+
+set.seed(129)
+ctrl <- trainControl(method="repeatedcv", number = 5, repeats = 10)
+
+RF.Train <- train(as.factor(Toast_final) ~. , data = df1, method = "rf",
+ trControl=ctrl,
+ scale=F)
+
+#RF.Predict <- predict(RF.Train, newdata = df1, type = "prob")
+
+RFImp <- varImp(RF.Train, scale = T)
+
+RFImp_table <- RFImp[['importance']]
+
+RFImp_table$Feature <-c(
+'Age',
+'Atrial fibrillation',
+'Atrial flutter',
+'Akinetic left ventricular segment',
+'Atrial myxoma',
+'Atrial septal aneurysm',
+'Congestive heart failure',
+'Dilated cardiomyopathy',
+'Delayed emptying velocity',
+'Hypokinetic left ventricular segment',
+'Infective endocarditis',
+'Intracardiac thrombus',
+'Left atrial appendage thrombus',
+'Left atrial turbulence',
+'Left ventricular thrombus',
+'Mitral annulus calcification',
+'Mechanical and bioprosthetic valve',
+'Myocardial infarction (older)',
+'Myocardial infarction (recent)',
+'Mitral stenosis',
+'Mitral valve prolapse',
+'Nonbacterial endocarditis',
+'Patent foramen ovale',
+'Sick sinus syndrome',
+'Sex'
+)
+RFImp_table$Feature <- factor(RFImp_table$Feature, levels = RFImp_table$Feature[order(RFImp_table$Overall)])
+
+# RFImp_table <- RFImp_table %>% arrange(desc(Overall))
+
+b <- ggplot(data=RFImp_table, 
+       aes(x=Feature, y=Overall))
+b + geom_bar(stat="identity", fill="red") + 
+  coord_flip() + 
+  xlab("") +
+  ylab("Importance") +
+  ggtitle("Random Forest Importance Score") +
+  theme(plot.title = element_text(hjust = 0.5, family="Arial"))
+  
+
+
+plot(RFImp, 
+     top = 20, 
+     main = "Random Forest Importance Score", 
+     adj = 0.5,
+     font=1,
+     font.main=1,
+     family = "sans")
+```
+
+```{r plot CART decision tree}
+# install.packages("rpart.plot", repos = "http://cran.cnr.berkeley.edu/")
+library(rpart.plot)
+library(rpart)
+library(caret)
+
+df0 <- feature_table_wide4
+myvars <- names(feature_table_wide4) %in% c("Toast","CCS","EMPI","stroke_date_index","Gender",
+                                           "Toast_new")
+df1 <- df0[,!myvars]
+
+CART.Train.rpart <- rpart(Toast_final ~., data = df1, method = "class")
+
+# ctrl <- trainControl(method="repeatedcv", number = 5, repeats = 10)
+# # grid <- expand.grid(cp = seq(0, 0.05, 0.005))
+# 
+# # train
+# CART.Train <- train(as.factor(Toast_final) ~., data = df1, method = "rpart",
+#  trControl=ctrl,
+#  metric = 'Accuracy',
+#  tuneLength = 10)
+
+rpart.plot(CART.Train.rpart, type=4, extra=102, branch=0.2)
+
+summary(CART.Train.rpart)
+
+```
+
+
+```{r find best svm model}
+library(e1071)
+
+df0 <- feature_table_wide4
+myvars <- names(feature_table_wide4) %in% c("Toast","CCS","EMPI","stroke_date_index","Gender",
+                                           "Toast_new","intracard_thromb")
+df1 <- df0[,!myvars]
+
+
+# train
+SVM.Train <- svm(formula = as.factor(Toast_final) ~ .,
+                  data = df1,
+                  type = "C-classification",
+                  kernel = "linear",
+                  tunecontrol = tune.control(cross=5)
+                 )
+SVM.Train$coefs
+
+
+sd(SVM.statistics$Accuracy.SVM)
+CM.SVM
+```
+
+```{r}
+# install.packages('UpSetR', repos = "http://cran.cnr.berkeley.edu/")
+library(UpSetR)
+```
+

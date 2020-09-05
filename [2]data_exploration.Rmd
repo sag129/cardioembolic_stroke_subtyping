@@ -1,0 +1,670 @@
+---
+title: '[2]data_exploration'
+author: "Wyliena Guan"
+date: "6/28/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# load libraries and data ----
+library(stringr)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# data directory
+setwd("/data/arrhythmia_source/data/PRESTO/presto rpdr 20180719")
+
+# code directory
+# setwd("/data/arrhythmia/wguan/cardioembolic_stroke/src")
+# setwd("/data/arrhythmia/lubitz/af_rpdr_scripts/af_scripts_20190419/")
+
+# report directory
+# setwd("/data/arrhythmia/wguan/cardioembolic_stroke/analysis/report")
+
+# load(file="/data/arrhythmia_source/data/PRESTO/presto rpdr 20180719/feature_table_wide.RData")
+# load(file="/data/arrhythmia/wguan/cardioembolic_stroke/data/feature_table_wide4.RData")
+load(file="/data/arrhythmia/wguan/cardioembolic_stroke/data/includeOtherStroke/feature_table_wide4.RData")
+```
+
+```{r}
+# number of patients without any qualifying CE features (0 patients)
+sum(is.na(feature_table_wide4$EMPI))
+length(feature_table_wide4$EMPI)-sum(is.na(feature_table_wide4$EMPI))
+```
+
+
+```{r one_feature_freq}
+# exclude variables v1, v2, v3
+features_only <- feature_table_wide4
+myvars <- names(feature_table_wide4) %in% c("EMPI", "MRN", "stroke_date_index", 
+                                            "Toast", "CCS","Toast_new","Toast_final",
+                                           "age","Gender","gender") #remove missing cardiac sources, response variables (TOAST, CCS)
+features_only <- feature_table_wide4[!myvars]
+
+freq_one_feature <- colSums(features_only, na.rm = T, dims = 1)
+# freq_one_feature <- data.frame(feature = names(freq_one_feature), freq=freq_one_feature)
+
+knitr::kable(freq_one_feature, digits = 6, format.args = list(big.mark = ",")) # Nicer view
+
+barplot(sort(freq_one_feature, decreasing = T), main="Feature Frequency", 
+        las=2)
+
+# rect
+# points
+# x-axis
+# y-axis
+# lines
+```
+Legend:
+cov	        cov.long
+mech_valve	Mechanical prosthetic valve bioprosthetic or mechanical valve
+ms	        Mitral stenosis
+af	        Atrial fibrillation (other than lone atrial fibrillation)
+laa	        Left atrial/atrial appendage thrombus (or smoke)
+sss	        Sick sinus syndrome
+mi_recent	  Recent myocardial infarction (<4weeks)
+lvt	        Left ventricular thrombus (or smoke)
+dc	        Dilated cardiomyopathy
+akine_lvs	  Akinetic left ventricular segment
+amyxoma	    Atrial myxoma
+infect_ec	  Infective Endocarditis
+mvp	        Mitral valve prolapse
+mac	        Mitral annulus calcification
+ms_noaf	    Mitral stenosis without atrial fibrillation
+lat	        Left atrial turbulence (smoke)
+asa	        Atrial septal aneurysm
+pfo	        Patent foramen ovale
+afl	        Atrial flutter
+lone_af	    Lone atrial fibrillation
+bio_valve	  Bioprosthetic cardiac valve
+nonbact_ec	Nonbacterial thrombotic endocarditis
+chf	        Congestive heart failure
+hypo_lvs	  Hypokinetic left ventricular segment
+mi_later	  Myocardial infarction (>4 weeks, <6 months)
+dev         Delayed emptying velocity
+intracard_thromb Intracardiac thrombus
+
+```{r correlation, echo=FALSE}
+cor_mat <- cor(features_only[,!(names(features_only) %in% c('intracard_thromb'))])
+
+colSums(cor_mat>0.4)
+cor_mat>0.3
+# get correlations between variables greater than 0.3
+get_correlations <- function(test) {
+  test1 <- data.frame(which(test == T, arr.ind=TRUE))
+  test2 <- test1[test1$row != test1$col,]
+  test2$cov1 <- str_replace(rownames(test2),"\\..*","")
+  test2$cov2 <- names(features_only)[test2$col]
+  test2$cov <- apply(cbind(test2$cov1, test2$cov2), 1, function(x) paste(sort(x), collapse=" "))
+  test3 <- distinct(test2, cov,.keep_all = T)
+  return(test3$cov)
+}
+# get correlations between variables greater than 0.3
+corr0.5 <- get_correlations(cor_mat>0.5)
+corr0.4 <- get_correlations(cor_mat>0.4)
+corr0.3 <- get_correlations(cor_mat>0.3)
+corr0.2 <- get_correlations(cor_mat>0.2)
+
+# install.packages("corrplot", repos = "http://cran.cnr.berkeley.edu/")
+library(corrplot)
+res1 <- cor.mtest(features_only, conf.level = .95)
+
+colnames(cor_mat) <- c(
+  'Atrial fibrillation',
+  'Atrial flutter',
+  'Akinetic left ventricular segment',
+  'Atrial myxoma',
+  'Atrial septal aneurysm',
+  'Congestive heart failure',
+  'Dilated cardiomyopathy',
+  'Delayed emptying velocity',
+  'Hypokinetic left ventricular segment',
+  'Infective endocarditis',
+  'Left atrial appendage thrombus',
+  'Left atrial turbulence',
+  'Left ventricular thrombus',
+  'Mitral annulus calcification',
+  'Mechanical and bioprosthetic valve',
+  'Myocardial infarction (older)',
+  'Myocardial infarction (recent)',
+  'Mitral stenosis',
+  'Mitral valve prolapse',
+  'Nonbacterial endocarditis',
+  'Patent foramen ovale',
+  'Sick sinus syndrome'
+  )
+rownames(cor_mat) <- c(
+  'Atrial fibrillation',
+  'Atrial flutter',
+  'Akinetic left ventricular segment',
+  'Atrial myxoma',
+  'Atrial septal aneurysm',
+  'Congestive heart failure',
+  'Dilated cardiomyopathy',
+  'Delayed emptying velocity',
+  'Hypokinetic left ventricular segment',
+  'Infective endocarditis',
+  'Left atrial appendage thrombus',
+  'Left atrial turbulence',
+  'Left ventricular thrombus',
+  'Mitral annulus calcification',
+  'Mechanical and bioprosthetic valve',
+  'Myocardial infarction (older)',
+  'Myocardial infarction (recent)',
+  'Mitral stenosis',
+  'Mitral valve prolapse',
+  'Nonbacterial endocarditis',
+  'Patent foramen ovale',
+  'Sick sinus syndrome'
+  )
+
+corrplot(cor_mat, p.mat = res1$p, insig = "label_sig", type = "upper", order = "original",
+         sig.level = c(.001, .01, .05), pch.cex = .5, pch.col = "white", tl.col = "black", tl.srt = 45)
+
+```
+Correlation matrix shows no strong correlation > 0.5.
+Correlation matrix shows a few correlations > 0.3 -
+[1] "af chf"                   "chf hypo_lvs"            
+[3] "dc hypo_lvs"              "mac ms"                  
+[5] "mech_bio_valve mi_recent"
+
+```{r correlation, echo=FALSE}
+corrplot(cor_mat, type = "upper", order = "hclust", hclust.method = c("ward.D2"),
+         tl.col = "black", tl.srt = 45)
+
+```
+
+See clusters of features together here...
+
+PC1
+pfo, asa, amyxoma, intracard_thromb, nonbact_ec -- seem to cluster together
+
+PC2
+mac, af, sss, dev, nonbact_ec -- seem to cluster together as as well
+
+PC3
+(dc, hypo_lvs, mi_recent, chf), mi_later, lvt, infect_ec, dev, laa, amyxoma -- seem to cluster together
+
+```{r}
+corrplot(cor_mat, type = "upper", order = "FPC", 
+         tl.col = "black", tl.srt = 45)
+
+```
+first principal component order = organized by first prinicipal component scores
+
+Results for first principal component order are same as for hierarchical clustering.
+
+```{r freq_total_features}
+features_only <- feature_table_wide4
+myvars <- names(feature_table_wide4) %in% c("EMPI", "MRN", "stroke_date_index", 
+                                            "Toast", "CCS","Toast_new","Toast_final",
+                                           "age","Gender","gender") #remove missing cardiac sources, response variables (TOAST, CCS)
+features_only <- feature_table_wide4[!myvars]
+
+freq_total_features <- rowSums(features_only, na.rm = F, dims = 1)
+
+data.frame(table(freq_total_features))
+# aggregate(freq_total_features, by=list(feature_table_wide4$Toast_final))
+# Table - baseline frequencies - number of features statified by CE
+table(freq_total_features, feature_table_wide4$Toast_final)
+
+a <- ggplot(as.data.frame(freq_total_features), aes(freq_total_features))
+a + geom_histogram(bins=30) + 
+  ggtitle("Histogram of Total Number of CE Features per Patient") +
+  scale_x_continuous(name = " ", breaks = 1:10)
+```
+
+```{r freq_total_features}
+features_only <- feature_table_wide4
+myvars <- names(feature_table_wide4) %in% c("EMPI", "MRN", "stroke_date_index", 
+                                            "Toast", "CCS","Toast_new","Toast_final",
+                                           "age","Gender","gender") #remove missing cardiac sources, response variables (TOAST, CCS)
+features_only <- feature_table_wide4[!myvars]
+
+freq_total_features <- data.frame(count=as.numeric(rowSums(features_only, na.rm = F, dims = 1)))
+
+freq_total_features$Toast_final <- as.factor(feature_table_wide4$Toast_final)
+
+# freq_total_features <- data.frame(table(freq_total_features))
+# aggregate(freq_total_features, by=list(feature_table_wide4$Toast_final))
+# Table - baseline frequencies - number of features statified by CE
+# table(freq_total_features, feature_table_wide4$Toast_final)
+
+
+a <- ggplot(freq_total_features, aes(x=count, fill=as.factor(Toast_final))) +
+  geom_histogram(aes(fill=as.factor(Toast_final)), alpha=0.4, position = "dodge2", binwidth = 0.5) +
+  # geom_histogram(data=subset(freq_total_features,Toast_final==1), aes(fill=as.factor(Toast_final)), alpha=0.4) +
+  scale_x_continuous(name = " ", breaks = 0:11) +
+  scale_fill_manual(name="", values=c("green","red"), labels=c("Non-CE","CE")) +   
+  xlab("Number of CE Features") +
+  ylab("Frequency") +
+  ggtitle("Total Number of CE Features per Patient") +
+  theme(legend.position = "bottom", 
+        plot.title = element_text(hjust = 0.5, family="Arial"))
+a
+
+```
+```{r summary_total_features}
+summary(freq_total_features)
+```
+Mean number of features = 1.549
+Median number of features = 2
+
+```{r combo_features_freq}
+# exclude variables v1, v2, v3
+features_only <- feature_table_wide4
+myvars <- names(feature_table_wide4) %in% c("EMPI", "stroke_date_index", "Toast", "CCS", "Toast_new", "Toast_final", "age", "Gender", "gender") #remove missing cardiac sources, response variables (TOAST, CCS)
+features_only <- feature_table_wide4[!myvars]
+logic <- feature_table_wide4$Toast_final == 1
+features_only <- feature_table_wide4[logic,!myvars]
+
+combos <- features_only %>% unite(combo,sep = "", remove = F)
+combos <- combos %>% dplyr::select(combo) %>% unlist()
+combos_freq <- table(combos)
+combos_freq <- as.data.frame(sort(combos_freq, decreasing = T))
+
+names(features_only)
+
+get_combo_name <- function(combos) {
+  combo_name = paste(names(features_only)[str_locate_all(as.character(combos),'1')[[1]]],"")
+
+  location_ones <- sapply(as.character(combos), function (x) {str_locate_all(x,'1')}, simplify = T)
+  string_ones <- sapply(location_ones, function(x) {paste(names(features_only)[x[,1]],collapse=" ") })
+  # count_ones <- sapply(location_ones, function(x) {length(x[,1])})
+  
+  # combos_freq$combo_name <- string_ones
+  return(string_ones)
+}
+
+combo_name = paste(names(features_only)[str_locate_all(as.character(combos_freq$combos),'1')[[1]]],"")
+
+location_ones <- sapply(as.character(combos_freq$combos), function (x) {str_locate_all(x,'1')}, simplify = T)
+string_ones <- sapply(location_ones, function(x) {paste(names(features_only)[x[,1]],collapse=" ") })
+count_ones <- sapply(location_ones, function(x) {length(x[,1])})
+
+combos_freq$combo_name <- string_ones; combos_freq$features_cnt <- count_ones
+rm(location_ones, string_ones)
+sum(combos_freq$Freq) # 1090
+combos_freq[,c('Freq','combo_name')]
+sum(combos_freq[,c('Freq')])
+dim(combos_freq)
+sum(features_only[,c('af')])/355
+
+```
+(1090-267)/1090 = 75.5% have at least 1 TOAST feature
+
+
+```{r}
+combos_freq_vec <- as.vector(combos_freq$Freq)
+sum(combos_freq_vec)
+
+```
+
+```{r examine toast_final==1, af subgroup}
+features_only <- feature_table_wide4
+myvars <- names(feature_table_wide4) %in% c("EMPI", "stroke_date_index", "Toast", "CCS", "Toast_new", "age", "Gender", "gender") #remove missing cardiac sources, response variables (TOAST, CCS)
+features_only <- feature_table_wide4[!myvars]
+logic <- feature_table_wide4$Toast_final == 1
+
+ce_af_freq <- features_only %>% filter(Toast_final == 1) %>%
+  filter(af == 1) %>% colSums() %>% data.frame()
+
+ce_af_freq$feature <- row.names(ce_af_freq)
+
+ce_af_freq %>% arrange(desc(.))
+```
+
+```{r}
+# cardioembolic stroke data table
+table(feature_table_wide4$Gender)
+prop.table(table(feature_table_wide4$Gender))
+
+summary(as.numeric(feature_table_wide4$age))
+
+hist(as.numeric(feature_table_wide4[feature_table_wide4$Gender=="Female",]$age))
+hist(as.numeric(feature_table_wide4[feature_table_wide4$Gender=="Male",]$age))
+```
+
+```{r generate_QC}
+# add column (freq_total_features)
+feature_table_wide_sample <- feature_table_wide4
+feature_table_wide_sample$total_features <- freq_total_features
+
+# 747 patients with features
+
+# get sample of XX (e.g. 50) patients
+set.seed(22)
+feature_table_wide_sample <- feature_table_wide_sample[sample(1:nrow(feature_table_wide_sample), replace=F),] %>%  top_n(n=32, wt=total_features)
+# skewed towards patients with greater number of features
+# 39 or 92
+
+# do a chart review for patients using their MRNs using data up until 2 weeks before date of RPDR pull
+
+```
+
+```{r}
+# Remove Toast column, add mrns back to na.omit(feature_table_wide) as row name
+# exclude variables
+myvars <- names(feature_table_wide4) %in% c("EMPI","stroke_date_index","Toast","CCS",
+                                           "Toast_new","Toast_final","age","Gender",
+                                           "gender") 
+features_Toast <- feature_table_wide4[!myvars]
+
+df = as.matrix(features_Toast)
+
+# retrieve PC directions U_j {j = 1,..., 4431}
+sample_cov <- cov(df)
+eigen_results = eigen(sample_cov)
+
+```
+
+
+```{r}
+##### PART A #####
+# project each article onto a subpace with 1-3 dim
+# using PC directions W_1, W_2, W_3
+# Project onto PC1
+X = eigen_results$vectors[,c(1)]
+P = solve(t(X) %*% X) %*% t(X)
+
+Prjtns = as.data.frame(t(as.matrix(P %*% t(as.matrix(df)))))
+Prjtns_class = cbind(Prjtns, class = feature_table_wide4$Toast)
+(ggplot(data = Prjtns_class, aes(x = V1, y = 0)) + geom_point(aes(color=class))
++ labs(title = "Projection onto PC1", x = "PC1"))
+```
+
+```{r}
+# Project onto PC1, PC2
+X = eigen_results$vectors[,c(1, 2)]
+P = solve(t(X) %*% X) %*% t(X)
+Prjtns = as.data.frame(t(as.matrix(P %*% t(as.matrix(df)))))
+Prjtns_class = cbind(Prjtns, class = feature_table_wide4$Toast_final)
+(ggplot(data = Prjtns_class, aes(x = V1, y = V2)) + geom_point(aes(color=class))
++ labs(title = "Projection onto PC1 and PC2", x = "PC1", y = "PC2"))
+```
+
+```{r}
+library(plotly)
+# Project onto PC1, PC2, PC3
+X = eigen_results$vectors[,c(1, 2, 3)]
+P = solve(t(X) %*% X) %*% t(X)
+Prjtns = as.data.frame(t(as.matrix(P %*% t(as.matrix(df)))))
+Prjtns_class = cbind(Prjtns, class = feature_table_wide4$Toast_final)
+plot_ly(x=Prjtns_class$V1, y=Prjtns_class$V2, z=Prjtns_class$V3, type="scatter3d", mode="markers", color=feature_table_wide4$Toast_final)
+```
+Cardioembolic vs. non-cardioembolic points overlap a lot
+
+
+```{r}
+##### PART B #####
+# Examine the weights/loadings of each W_j can give us some insight
+# about the roles of original variables (dimensions)
+
+# how much variation captured
+sum(eigen_results$values[c(1:3)])/sum(eigen_results$values)
+
+weights = eigen_results$values[c(1,2,3)]^0.5
+weights = diag(weights)
+X = eigen_results$vectors[,c(1,2,3)]
+X = X %*% weights
+X = as.data.frame(X)
+X$word = colnames(df)
+
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# Report the 20 words which correspond to the maximum positive
+# and minimum negative weights for each of the top 3 PC directions.
+X_wt1 <- X[order(-X$V1),]
+head(X_wt1[c("word")], 20)
+
+X_wt2 <- X[order(-X$V2),]
+head(X_wt2[c("word")], 20)
+
+X_wt3 <- X[order(-X$V3),]
+head(X_wt3[c("word")], 20)
+```
+PC1
+pfo, asa, intracard_thromb, nonbact_ec, amyxoma  -- seem to cluster together
+
+PC2
+mac, sss, dev, intracard_thromb, dev, nonbact_ec -- seem to cluster together as as well
+
+PC3
+mac, pfo, akine_lvs, ms, asa -- seem to cluster together
+
+
+```{r}
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# Based on this, can you comment on the role each of the PC direction
+# play in capturing the variation (variance) of the data set of articles?
+# &gt; From the principal component, you get a list of words that appear
+# the most often or least often in an article together for some reason.
+# Usually, the words would gather around together to express a particular
+# topic such as music or art.
+# These words could capture the "heart" of the meaning in the article, so to speak.
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+##### part c #####
+# Perform Kernel PCA with polynomial and Gaussian kernels
+normalizeK <- function(K) {
+  n = dim(K)[1]
+  A = (diag(n) - 1/n * matrix(1, nrow = n, ncol = 1) %*%
+  matrix(1, nrow = 1, ncol = n))
+  ret <- A %*% K %*% A
+  return(ret)
+}
+# define kernels
+plainK <- function(x) {
+  return(x %*% t(x))
+}
+polyK <- function(x, d=2) {
+  return((1 + plainK(x))^d)
+}
+gaussK <- function(x, sigma=1) {
+  n = nrow(x)
+  K = matrix(0, nrow=n, ncol=n)
+  for (i in 1:n) {
+    for (j in 1:n) {
+      K[i, j] = -sum((x[i]-x[j])^2)
+    }
+  }
+  K = exp(K / sigma)
+  return(K)
+}
+kernel_pca <- function(K, data) {
+  N <- dim(K)[1]
+  # center K
+  K_centered <- (diag(N) - (1/N))%*%(K)%*%(diag(N) - (1/N))
+  #
+  # calculate eigenvalues and eigenvectors of K/N
+  result <- eigen(K_centered)
+  
+  eval2 <- result$values[c(1:3)]
+  PC2 <- result$vectors[, c(1,3)]
+  # calculate PC scores
+  PC_scores <- K_centered %*% PC2
+  kernel_PCA_prjtn = data.frame(PC_scores, class = data$Toast_final)
+  # (ggplot(data = kernel_PCA_prjtn, aes(x = kernel_PCA_prjtn[,c(1)],
+  # y = kernel_PCA_prjtn[,c(2)]))
+  # + geom_point(aes(color=class))
+  # + labs(title = "Projection onto PC1 and PC2", x = "PC1", y = "PC2"))
+  
+  plot_ly(x=kernel_PCA_prjtn[,c(1)], y=kernel_PCA_prjtn[,c(2)], z=kernel_PCA_prjtn[,c(3)], type="scatter3d", mode="markers", color=feature_table_wide4$Toast_final, title = "Projection onto PC1, PC2, PC3")
+  return(kernel_PCA_prjtn)
+}
+```
+```{r}
+# Choose your kernel
+plain_K = plainK(as.matrix(features_only))
+kernel_pca(plain_K, feature_table_wide4)
+```
+
+
+```{r}
+poly_K = polyK(as.matrix(features_only), 2)
+kernel_pca(poly_K, feature_table_wide4)
+```
+Data separable with 3 PCs, plain_K, polynomial kernal
+
+```{r}
+gauss_K = gaussK(as.matrix(features_only), 1)
+kernel_pca(gauss_K, feature_table_wide4)
+```
+Gaussian kernel really doesn't separate the Toast classes.
+
+Hard to separate CE vs. no CE; will create binary label for now
+
+```{r}
+# responseY = feature_table_wide4$Toast_final
+# 
+# myvars <- names(feature_table_wide4) %in% c("EMPI","stroke_date_index","Toast","CCS",
+#                                            "Toast_new","Toast_final")
+# predictorX <- feature_table_wide4[!myvars]
+# 
+# # scaling -> cor=T; no scaling -> F
+# pca = princomp(predictorX, cor=F)
+# 
+# pc.comp = pca$scores
+# pc.comp1 = -1*pc.comp[,1] # principal component 1 scores (negated for convenience)
+# pc.comp2 = -1*pc.comp[,2] # principal component 2 scores (negated for convenience)
+# plot(pc.comp1, pc.comp2, xlim=c(-2,1), ylim=c(-2,1), type="n")
+# points(pc.comp1[responseY==0], pc.comp2[responseY==0], cex=0.5, col="blue")
+# points(pc.comp1[responseY==1], pc.comp2[responseY==1], cex=0.5, col="red")
+```
+
+
+```{r}
+# Followed this tutorial
+# https://uc-r.github.io/hc_clustering
+
+# install.packages("factoextra", repos = "http://cran.cnr.berkeley.edu/")
+# install.packages("dendextend", repos = "http://cran.cnr.berkeley.edu/")
+library(tidyverse)  # data manipulation
+library(cluster)    # clustering algorithms
+library(factoextra) # clustering visualization
+library(dendextend) # for comparing two dendrograms
+
+# Hierarchical clustering with dendrograms
+## try hclust to identify new groups
+# using distance matrix
+
+features_only <- subset(feature_table_wide4, select = -c(EMPI,Toast,CCS,stroke_date_index, Toast_new, age, Gender, Toast_final))
+d <- dist(features_only, method = "euclidean")
+
+# Hierarchical clustering using Complete Linkage
+hc1 <- hclust(d, method = "complete" )
+
+# Plot the obtained dendrogram
+plot(hc1, cex = 0.6, hang = -1)
+
+# Compute with agnes
+hc2 <- agnes(features_only, method = "complete")
+
+# Agglomerative coefficient
+hc2$ac
+# measures the amount of clustering structure found (values closer to 1 suggest strong clustering structure
+```
+Strong clustering structure, suggests random forest may be useful
+
+
+```{r}
+# methods to assess
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+# function to compute coefficient
+ac <- function(x) {
+  agnes(features_only, method = x)$ac
+}
+
+map_dbl(m, ac)
+```
+Here we see that Ward’s method identifies the strongest clustering structure of the four methods assessed.
+ward = 0.9985450
+
+```{r}
+hc3 <- agnes(features_only, method = "ward")
+pltree(hc3, cex = 0.1, hang = -1, main = "Dendrogram of agnes")
+```
+Can split the data mainly by 2-3 variables
+
+```{r}
+# Ward's method
+hc5 <- hclust(d, method = "ward.D2" )
+
+# Cut tree into 5 groups
+sub_grp <- cutree(hc5, k = 3)
+
+# Number of members in each cluster
+table(sub_grp)
+```
+
+```{r}
+features_only_cluster <- features_only %>%
+  mutate(cluster = sub_grp)
+```
+
+```{r combo_features_freq}
+combo_features_freq_fn <- function(data) {
+  data <- data %>% dplyr::select(-cluster)
+  combos <- data %>% unite(combo,sep = "", remove = F)
+  combos <- combos %>% dplyr::select(combo) %>% unlist()
+  combos_freq <- table(combos)
+  
+  ret <- sort(combos_freq, decreasing = T)
+  return(ret)
+}
+```
+
+```{r}
+for (i in 1:3) {
+  print("combos")
+  # print(combo_features_freq_fn(features_only_cluster[features_only_cluster$cluster == i,]))
+  combo <- combo_features_freq_fn(features_only_cluster[features_only_cluster$cluster == i,])[1]
+  print(get_combo_name(names(combo)))
+  
+}
+
+
+```
+important variables in order of greatest to least importance: af, then chf
+
+```{r}
+plot(hc5, cex = 0.02)
+rect.hclust(hc5, k = 3, border = 2:5)
+```
+
+```{r}
+fviz_cluster(list(data = features_only, cluster = sub_grp))
+```
+A lot of overlap between af vs af-chf clusters
+
+```{r}
+fviz_nbclust(features_only, FUN = hcut, method = "wss")
+```
+2-3 seem to be the optimal number of clustes
+```{r}
+fviz_nbclust(features_only, FUN = hcut, method = "silhouette")
+```
+```{r}
+gap_stat <- clusGap(features_only, FUN = hcut, nstart = 25, K.max = 10, B = 50)
+fviz_gap_stat(gap_stat)
+```
+
+```{r}
+k2 <- kmeans(features_only, centers = 10, nstart = 25)
+str(k2)
+fviz_cluster(k2, data = features_only)
+```
+There are interesting clustering properties.
+
+
+```{r}
+k2 <- kmeans(features_only, centers = 10, nstart = 25)
+k2
+fviz_cluster(k2, data = features_only)
+```
+
+
+
