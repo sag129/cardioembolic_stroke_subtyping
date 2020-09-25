@@ -6,6 +6,8 @@ Year: 2020
 
 Article Title: Automated Electronic Phenotyping of Cardioembolic Stroke
 
+Corresponding Author: Dr. Steven Lubitz, slubitz@mgh.harvard.edu
+
 The R scripts used to:
 - create a clean corpus,
 - extract features associated with cardioembolic stroke, and 
